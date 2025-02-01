@@ -1,23 +1,37 @@
 import pytest
 import requests
 import random
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 import datetime
 import time
 import inspect
+import os
 
 # base_url = 'http://127.0.0.1:5000'
 base_url = 'https://frisco-playground.up.railway.app'
 
 # openpyxl initiation
-workbook = Workbook()
-sheet = workbook.active
+excel_filename = 'Test Result API.xlsx'
+run_result = "create_sheet" #value : create_sheet or create_file
 
-sheet.title = "Test Result"
+ctime = datetime.datetime.now().replace(microsecond=0)
+current_time = str(ctime).replace(":", ".")
 
-# ---------------------------------------------
-# ctime = datetime.datetime.now()
-# sheet.title = f"Test Report {ctime}"
+if run_result == 'create_sheet':
+    if os.path.exists(excel_filename):
+        workbook = load_workbook(excel_filename)
+        sheet = workbook.create_sheet(f"Test Result {current_time}")
+    else:
+        # create file if not exist 
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = f"Test Result {current_time}"
+elif run_result == 'create_file':
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = f"Test Result"
+else:
+    print("Invalid run_result value. Please use 'create_sheet' or 'create_file'.")
 
 sheet['A1'] = "No"
 sheet['B1'] = "Test Case"
@@ -25,7 +39,6 @@ sheet['C1'] = "Data Test"
 sheet['D1'] = "Status"
 sheet['E1'] = "Execution time"
 sheet['F1'] = "Time"
-# ---------------------------------------------
 
 test_results = {}
 
@@ -36,7 +49,10 @@ def write_result_excel():
     for test_name, result in test_results.items():
         num+=1
         sheet.append([num, test_name, result['test_data'], result['result'], result['execution_time'], result['current_time']]) 
-    workbook.save('TEST.xlsx')
+    if run_result == 'create_sheet':
+        workbook.save(excel_filename)
+    elif run_result == 'create_file':
+        workbook.save(f'Test Result API {current_time}.xlsx')
 
 new_id = None
 same_random_value = None
@@ -86,6 +102,7 @@ def test_create_item_with_correct_value_of_request():
     global new_id
     global same_random_value
 
+    start_time = time.time()
     random_number = random.randint(0, 100)
     random_value = compare_number(random_number)
 
@@ -94,10 +111,7 @@ def test_create_item_with_correct_value_of_request():
     same_random_value = random_value
     create_item = requests.post(f'{base_url}/create_item', json=json_data)
 
-    start_time = time.time()
     response = create_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
     # print(response)
     message = response['message']
     assert_message = 'Item created'
@@ -109,6 +123,10 @@ def test_create_item_with_correct_value_of_request():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 # def test_create_item_fail():
@@ -134,14 +152,12 @@ def test_create_item_with_correct_value_of_request():
 #     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_create_item_with_already_exist_value_of_requests():
+    start_time = time.time()
     json_data = {"name": f"TESTING {same_random_value}","description": "Description testing"}
 
     create_item = requests.post(f'{base_url}/create_item', json=json_data)
     
-    start_time = time.time()
     response = create_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'already exist'
@@ -151,19 +167,21 @@ def test_create_item_with_already_exist_value_of_requests():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_create_item_with_invalid_value_of_name():
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     json_data = {"name": f"TESTING! {random_value}","description": "Description testing"}
 
     create_item = requests.post(f'{base_url}/create_item', json=json_data)
     
-    start_time = time.time()
     response = create_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Name must contain only letters, numbers and spaces'
@@ -173,17 +191,19 @@ def test_create_item_with_invalid_value_of_name():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_create_item_with_value_of_name_length_less_than_3():
+    start_time = time.time()
     json_data = {"name": f"X","description": "Description testing"}
 
     create_item = requests.post(f'{base_url}/create_item', json=json_data)
     
-    start_time = time.time()
     response = create_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Name must be at least 3 characters long'
@@ -193,17 +213,19 @@ def test_create_item_with_value_of_name_length_less_than_3():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_create_item_with_value_of_name_length_more_than_100():
+    start_time = time.time()
     json_data = {"name": f"This is a test for checking max value length of this field is it correct the maximum value is one hundred","description": "Description testing"}
 
     create_item = requests.post(f'{base_url}/create_item', json=json_data)
     
-    start_time = time.time()
     response = create_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Name must not exceed 100 characters long'
@@ -213,17 +235,19 @@ def test_create_item_with_value_of_name_length_more_than_100():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_create_item_with_empty_value_of_name():
+    start_time = time.time()
     json_data = {"name": "","description": "Description testing"}
 
     create_item = requests.post(f'{base_url}/create_item', json=json_data)
     
-    start_time = time.time()
     response = create_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Name is required'
@@ -233,19 +257,21 @@ def test_create_item_with_empty_value_of_name():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_create_item_with_invalid_value_of_description():
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     json_data = {"name": f"TESTING {random_value}","description": "Description testing!"}
 
     create_item = requests.post(f'{base_url}/create_item', json=json_data)
 
-    start_time = time.time()
     response = create_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Description must contain only letters, numbers and spaces'
@@ -255,19 +281,21 @@ def test_create_item_with_invalid_value_of_description():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_create_item_with_value_of_description_length_less_than_3():
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     json_data = {"name": f"TESTING {random_value}","description": "X"}
 
     create_item = requests.post(f'{base_url}/create_item', json=json_data)
     
-    start_time = time.time()
     response = create_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Description must be at least 3 characters long'
@@ -277,19 +305,21 @@ def test_create_item_with_value_of_description_length_less_than_3():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_create_item_with_value_of_description_length_more_than_100():
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     json_data = {"name": f"TESTING {random_value}","description": "This is a test for checking max value length of this field is it correct the maximum value is one hundred"}
 
     create_item = requests.post(f'{base_url}/create_item', json=json_data)
     
-    start_time = time.time()
     response = create_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Description must not exceed 100 characters long'
@@ -299,19 +329,21 @@ def test_create_item_with_value_of_description_length_more_than_100():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_create_item_with_empty_value_of_description():
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     json_data = {"name": f"TESTING {random_value}","description": ""}
 
     create_item = requests.post(f'{base_url}/create_item', json=json_data)
     
-    start_time = time.time()
     response = create_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Description is required'
@@ -321,10 +353,15 @@ def test_create_item_with_empty_value_of_description():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_update_item_with_correct_value_of_request():
     global update_value
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     update_value = random_value
@@ -332,10 +369,7 @@ def test_update_item_with_correct_value_of_request():
 
     update_item = requests.put(f'{base_url}/update_item/{new_id}', json=json_data)
     
-    start_time = time.time()
     response = update_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['message']
     assert_message = 'Item updated'
@@ -345,17 +379,19 @@ def test_update_item_with_correct_value_of_request():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_update_item_with_already_exist_value_of_requests():
+    start_time = time.time()
     json_data = {"name": f"TESTING {update_value}","description": "Description testing"}
 
     update_item = requests.put(f'{base_url}/update_item/{new_id}', json=json_data)
     
-    start_time = time.time()
     response = update_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'already exist'
@@ -365,19 +401,21 @@ def test_update_item_with_already_exist_value_of_requests():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_update_item_with_invalid_value_of_name():
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     json_data = {"name": f"TESTING! {random_value}","description": "Description testing"}
 
     update_item = requests.put(f'{base_url}/update_item/{new_id}', json=json_data)
     
-    start_time = time.time()
     response = update_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Name must contain only letters, numbers and spaces'
@@ -387,17 +425,19 @@ def test_update_item_with_invalid_value_of_name():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_update_item_with_value_of_name_length_less_than_3():
+    start_time = time.time()
     json_data = {"name": f"X","description": "Description testing"}
 
     update_item = requests.put(f'{base_url}/update_item/{new_id}', json=json_data)
     
-    start_time = time.time()
     response = update_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Name must be at least 3 characters long'
@@ -407,17 +447,19 @@ def test_update_item_with_value_of_name_length_less_than_3():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_update_item_with_value_of_name_length_more_than_100():
+    start_time = time.time()
     json_data = {"name": f"This is a test for checking max value length of this field is it correct the maximum value is one hundred","description": "Description testing"}
 
     update_item = requests.put(f'{base_url}/update_item/{new_id}', json=json_data)
     
-    start_time = time.time()
     response = update_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Name must not exceed 100 characters long'
@@ -427,17 +469,19 @@ def test_update_item_with_value_of_name_length_more_than_100():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_update_item_with_empty_value_of_name():
+    start_time = time.time()
     json_data = {"name": "","description": "Description testing"}
 
     update_item = requests.put(f'{base_url}/update_item/{new_id}', json=json_data)
     
-    start_time = time.time()
     response = update_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Name is required'
@@ -447,19 +491,21 @@ def test_update_item_with_empty_value_of_name():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_update_item_with_invalid_value_of_description():
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     json_data = {"name": f"TESTING {random_value}","description": "Description testing!"}
 
     update_item = requests.put(f'{base_url}/update_item/{new_id}', json=json_data)
     
-    start_time = time.time()
     response = update_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Description must contain only letters, numbers and spaces'
@@ -469,19 +515,21 @@ def test_update_item_with_invalid_value_of_description():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_update_item_with_value_of_description_length_less_than_3():
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     json_data = {"name": f"TESTING {random_value}","description": "X"}
 
     update_item = requests.put(f'{base_url}/update_item/{new_id}', json=json_data)
     
-    start_time = time.time()
     response = update_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Description must be at least 3 characters long'
@@ -491,19 +539,21 @@ def test_update_item_with_value_of_description_length_less_than_3():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_update_item_with_value_of_description_length_more_than_100():
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     json_data = {"name": f"TESTING {random_value}", "description": "This is a test for checking max value length of this field is it correct the maximum value is one hundred"}
 
     update_item = requests.put(f'{base_url}/update_item/{new_id}', json=json_data)
     
-    start_time = time.time()
     response = update_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Description must not exceed 100 characters long'
@@ -513,19 +563,21 @@ def test_update_item_with_value_of_description_length_more_than_100():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_update_item_with_empty_value_of_description():
+    start_time = time.time()
     random_number = random.randint(0,100)
     random_value = compare_number(random_number)
     json_data = {"name": f"TESTING {random_value}","description": ""}
 
     update_item = requests.put(f'{base_url}/update_item/{new_id}', json=json_data)
     
-    start_time = time.time()
     response = update_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Description is required'
@@ -535,15 +587,17 @@ def test_update_item_with_empty_value_of_description():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message), "test_data": str(json_data), "execution_time": duration, "current_time": current_time}
 
 def test_get_list_all():
+    start_time = time.time()
     get_list_all = requests.get(f'{base_url}/items')
     
-    start_time = time.time()
     response = get_list_all.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     assert_message = 'items'
     current_time = datetime.datetime.now()
@@ -552,15 +606,17 @@ def test_get_list_all():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, response),"test_data": " ", "execution_time": duration, "current_time": current_time}
 
 def test_get_detail_item_with_correct_id():
+    start_time = time.time()
     get_detail_item = requests.get(f'{base_url}/item/{new_id}')
     
-    start_time = time.time()
     response = get_detail_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['item']
     assert_message = 'id'
@@ -572,15 +628,17 @@ def test_get_detail_item_with_correct_id():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message),"test_data": f"id : {new_id}", "execution_time": duration, "current_time": current_time}
 
 def test_get_detail_item_with_id_not_exist():
+    start_time = time.time()
     get_detail_item = requests.get(f'{base_url}/item/100')
     
-    start_time = time.time()
     response = get_detail_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = 'Item not found'
@@ -590,15 +648,17 @@ def test_get_detail_item_with_id_not_exist():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message),"test_data": "id : 100", "execution_time": duration, "current_time": current_time}
 
 def test_delete_item_with_correct_id():
+    start_time = time.time()
     delete_item = requests.delete(f'{base_url}/delete_item/{new_id}')
     
-    start_time = time.time()
     response = delete_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['message']
     assert_message = f'has been successfully deleted'
@@ -608,15 +668,17 @@ def test_delete_item_with_correct_id():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message),"test_data": f"id : {new_id}", "execution_time": duration, "current_time": current_time}
 
 def test_delete_item_with_id_already_deleted():
+    start_time = time.time()
     delete_item = requests.delete(f'{base_url}/delete_item/{new_id}')
     
-    start_time = time.time()
     response = delete_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = f'Item not found'
@@ -626,15 +688,17 @@ def test_delete_item_with_id_already_deleted():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message),"test_data": f"id : {new_id}", "execution_time": duration, "current_time": current_time}
 
 def test_delete_item_with_id_not_exist():
+    start_time = time.time()
     delete_item = requests.delete(f'{base_url}/delete_item/100')
     
-    start_time = time.time()
     response = delete_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['error']
     assert_message = f'Item not found'
@@ -644,15 +708,17 @@ def test_delete_item_with_id_not_exist():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message),"test_data": "id : 100", "execution_time": duration, "current_time": current_time}
 
 def test_delete_all_items():
+    start_time = time.time()
     delete_all_item = requests.post(f'{base_url}/delete_all')
     
-    start_time = time.time()
     response = delete_all_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['message']
     assert_message = f'All data has been deleted'
@@ -662,15 +728,17 @@ def test_delete_all_items():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message),"test_data": " ", "execution_time": duration, "current_time": current_time}
 
 def test_delete_all_items_with_already_deleted():
+    start_time = time.time()
     delete_all_item = requests.post(f'{base_url}/delete_all')
     
-    start_time = time.time()
     response = delete_all_item.json()
-    end_time = time.time()
-    duration = round(end_time - start_time, 4)
 
     message = response['message']
     assert_message = f'No items to delete'
@@ -680,4 +748,8 @@ def test_delete_all_items_with_already_deleted():
 
     func_name = inspect.currentframe().f_code.co_name
     function_name = process_func_name(func_name)
+    
+    end_time = time.time()
+    duration = round(end_time - start_time, 4)
+
     test_results[function_name] = {"result": get_result(assert_message, message),"test_data": " ", "execution_time": duration, "current_time": current_time}
